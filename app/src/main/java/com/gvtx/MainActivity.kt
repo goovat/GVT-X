@@ -10,7 +10,6 @@ import android.util.Log
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -61,15 +60,14 @@ class MainActivity : AppCompatActivity() {
         
         cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
         
+        statusText.text = "GVT-X Ready"
+        
         setupSeekBars()
         setupButtons()
         setupSurfaceView()
         
         startBackgroundThread()
         checkCameraPermission()
-        
-        statusText.text = "GVT-X Ready"
-        statusText.visibility = View.VISIBLE
     }
     
     private fun checkCameraPermission() {
@@ -78,6 +76,7 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQUEST_CAMERA_PERMISSION)
         } else {
             statusText.text = "Camera permission granted"
+            openCamera()
         }
     }
     
@@ -177,7 +176,9 @@ class MainActivity : AppCompatActivity() {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "Surface created")
                 statusText.text = "Opening camera..."
-                openCamera()
+                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    openCamera()
+                }
             }
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
             override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -262,6 +263,7 @@ class MainActivity : AppCompatActivity() {
         captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
         
         captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
+        Log.d(TAG, "Preview started")
     }
     
     private fun updateCameraControls() {
@@ -303,11 +305,13 @@ class MainActivity : AppCompatActivity() {
     
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CAMERA_PERMISSION && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            statusText.text = "Permission granted"
-            openCamera()
-        } else {
-            statusText.text = "Permission denied"
+        if (requestCode == REQUEST_CAMERA_PERMISSION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                statusText.text = "Permission granted"
+                openCamera()
+            } else {
+                statusText.text = "Permission denied"
+            }
         }
     }
     
