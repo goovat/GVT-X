@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         
+        // Initialize all views
         surfaceView = findViewById(R.id.surfaceView)
         textInfo = findViewById(R.id.textInfo)
         seekIso = findViewById(R.id.seekIso)
@@ -60,6 +61,7 @@ class MainActivity : AppCompatActivity() {
         
         cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
         
+        // Now safe to use statusText
         statusText.text = "GVT-X Ready"
         
         setupSeekBars()
