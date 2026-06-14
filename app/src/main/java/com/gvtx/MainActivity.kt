@@ -3,8 +3,7 @@ package com.gvtx
 import android.Manifest
 import android.content.ContentValues
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
 import android.hardware.camera2.*
 import android.media.ImageReader
 import android.os.Build
@@ -14,6 +13,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.provider.MediaStore
 import android.util.Log
+import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -72,7 +72,6 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
         
         statusText.text = "GVT-X Ready"
-        statusText.visibility = View.VISIBLE
         
         cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
         
@@ -84,23 +83,6 @@ class MainActivity : AppCompatActivity() {
         
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQUEST_CAMERA_PERMISSION)
-        } else {
-            checkStoragePermission()
-        }
-    }
-    
-    private fun checkStoragePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(
-                    Manifest.permission.READ_MEDIA_IMAGES,
-                    Manifest.permission.READ_MEDIA_VIDEO
-                ), 201)
-            }
-        } else {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 201)
-            }
         }
     }
     
@@ -163,7 +145,6 @@ class MainActivity : AppCompatActivity() {
             isRecording = !isRecording
             btnRecord.text = if (isRecording) "RECORDING..." else "RECORD"
             statusText.text = if (isRecording) "Recording started" else "Recording stopped"
-            Toast.makeText(this, if (isRecording) "Video recording started" else "Video recording stopped", Toast.LENGTH_SHORT).show()
         }
         
         btnSwitchLens.setOnClickListener {
@@ -187,7 +168,9 @@ class MainActivity : AppCompatActivity() {
                     openCamera()
                 }
             }
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                Log.d(TAG, "Surface changed: $width x $height")
+            }
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 closeCamera()
             }
@@ -209,7 +192,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onOpened(camera: CameraDevice) {
                     Log.d(TAG, "Camera opened")
                     cameraDevice = camera
-                    statusText.text = "Camera ready"
+                    statusText.text = "Camera ready, creating session..."
                     createCaptureSession()
                 }
                 override fun onDisconnected(camera: CameraDevice) {
@@ -219,6 +202,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onError(camera: CameraDevice, error: Int) {
                     cameraDevice = null
                     statusText.text = "Camera error: $error"
+                    Log.e(TAG, "Camera error: $error")
                 }
             }, backgroundHandler)
         } catch (e: Exception) {
@@ -232,6 +216,7 @@ class MainActivity : AppCompatActivity() {
             val characteristics = cameraManager.getCameraCharacteristics(id)
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
             if (facing == currentLensFacing) {
+                Log.d(TAG, "Found camera ID: $id")
                 return id
             }
         }
@@ -242,7 +227,7 @@ class MainActivity : AppCompatActivity() {
         val surface = surfaceView.holder.surface
         
         // Setup ImageReader for photo capture
-        imageReader = ImageReader.newInstance(1920, 1080, android.graphics.ImageFormat.JPEG, 2)
+        imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, 2)
         imageReader?.setOnImageAvailableListener({ reader ->
             val image = reader.acquireLatestImage()
             if (image != null) {
@@ -251,16 +236,22 @@ class MainActivity : AppCompatActivity() {
             }
         }, backgroundHandler)
         
+        val targets = mutableListOf<Surface>()
+        targets.add(surface)
+        imageReader?.surface?.let { targets.add(it) }
+        
         cameraDevice?.createCaptureSession(
-            listOf(surface, imageReader?.surface),
+            targets,
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     captureSession = session
                     startPreview(surface)
                     statusText.text = "Preview running"
+                    Log.d(TAG, "Capture session configured, preview started")
                 }
                 override fun onConfigureFailed(session: CameraCaptureSession) {
                     statusText.text = "Configuration failed"
+                    Log.e(TAG, "Capture session configuration failed")
                     Toast.makeText(this@MainActivity, "Camera config failed", Toast.LENGTH_SHORT).show()
                 }
             },
@@ -273,6 +264,7 @@ class MainActivity : AppCompatActivity() {
         val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
         captureRequest.addTarget(surface)
         
+        // Set manual controls
         captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
         captureRequest.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
         captureRequest.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
@@ -280,7 +272,7 @@ class MainActivity : AppCompatActivity() {
         captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
         
         captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
-        Log.d(TAG, "Preview started")
+        Log.d(TAG, "Preview started with ISO=$currentIso, Shutter=$currentShutterUs")
     }
     
     private fun takePicture() {
@@ -371,21 +363,11 @@ class MainActivity : AppCompatActivity() {
     
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            REQUEST_CAMERA_PERMISSION -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    statusText.text = "Camera permission granted"
-                    checkStoragePermission()
-                } else {
-                    statusText.text = "Camera permission denied"
-                }
-            }
-            201 -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    statusText.text = "Storage permission granted"
-                } else {
-                    statusText.text = "Storage permission denied - photos won't save"
-                }
+        if (requestCode == REQUEST_CAMERA_PERMISSION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                statusText.text = "Camera permission granted"
+            } else {
+                statusText.text = "Camera permission denied"
             }
         }
     }
