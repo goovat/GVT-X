@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -45,32 +46,33 @@ class MainActivity : AppCompatActivity() {
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        
-        // Initialize all views
-        surfaceView = findViewById(R.id.surfaceView)
-        textInfo = findViewById(R.id.textInfo)
-        seekIso = findViewById(R.id.seekIso)
-        seekShutter = findViewById(R.id.seekShutter)
-        seekFocus = findViewById(R.id.seekFocus)
-        btnCapture = findViewById(R.id.btnCapture)
-        btnSwitchLens = findViewById(R.id.btnSwitchLens)
-        btnRecord = findViewById(R.id.btnRecord)
-        statusText = findViewById(R.id.statusText)
-        
-        cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
-        
-        // Now safe to use statusText
-        statusText.text = "GVT-X Ready"
-        
-        setupSeekBars()
-        setupButtons()
-        setupSurfaceView()
-        
-        startBackgroundThread()
-        checkCameraPermission()
-    }
+    super.onCreate(savedInstanceState)
+    setContentView(R.layout.activity_main)
+    
+    // Initialize ALL views first
+    surfaceView = findViewById(R.id.surfaceView)
+    textInfo = findViewById(R.id.textInfo)
+    seekIso = findViewById(R.id.seekIso)
+    seekShutter = findViewById(R.id.seekShutter)
+    seekFocus = findViewById(R.id.seekFocus)
+    btnCapture = findViewById(R.id.btnCapture)
+    btnSwitchLens = findViewById(R.id.btnSwitchLens)
+    btnRecord = findViewById(R.id.btnRecord)
+    statusText = findViewById(R.id.statusText)
+    
+    // Now statusText is initialized and safe to use
+    statusText.text = "GVT-X Ready"
+    statusText.visibility = View.VISIBLE
+    
+    cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
+    
+    setupSeekBars()
+    setupButtons()
+    setupSurfaceView()
+    
+    startBackgroundThread()
+    checkCameraPermission()
+}
     
     private fun checkCameraPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -78,7 +80,6 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQUEST_CAMERA_PERMISSION)
         } else {
             statusText.text = "Camera permission granted"
-            openCamera()
         }
     }
     
@@ -144,18 +145,18 @@ class MainActivity : AppCompatActivity() {
         } else {
             "1/${1000000 / currentShutterUs}"
         }
-        textInfo.text = "ISO: $currentIso | Shutter: $shutterString | Focus: ${(currentFocus * 100).toInt()}%"
+        textInfo.text = "📷 ISO: $currentIso | Shutter: $shutterString | Focus: ${(currentFocus * 100).toInt()}%"
     }
     
     private fun setupButtons() {
         btnCapture.setOnClickListener {
-            Toast.makeText(this, "Photo captured!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "📸 Photo captured! (RAW+JPEG)", Toast.LENGTH_SHORT).show()
             statusText.text = "Photo captured"
         }
         
         btnRecord.setOnClickListener {
             isRecording = !isRecording
-            btnRecord.text = if (isRecording) "RECORDING..." else "RECORD"
+            btnRecord.text = if (isRecording) "🔴 RECORDING..." else "⏺ RECORD"
             val message = if (isRecording) "Recording started" else "Recording stopped"
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
             statusText.text = message
@@ -177,13 +178,14 @@ class MainActivity : AppCompatActivity() {
         surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "Surface created")
-                statusText.text = "Opening camera..."
-                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                    openCamera()
-                }
+                statusText.text = "Surface created, opening camera..."
+                openCamera()
             }
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                Log.d(TAG, "Surface changed: $width x $height")
+            }
             override fun surfaceDestroyed(holder: SurfaceHolder) {
+                Log.d(TAG, "Surface destroyed")
                 closeCamera()
             }
         })
@@ -191,34 +193,40 @@ class MainActivity : AppCompatActivity() {
     
     private fun openCamera() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            statusText.text = "No camera permission"
+            statusText.text = "Camera permission denied"
             return
         }
         
         try {
             val cameraId = getCameraId()
             Log.d(TAG, "Opening camera: $cameraId")
-            statusText.text = "Opening camera $cameraId"
+            statusText.text = "Opening camera: $cameraId"
             
             cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
-                    Log.d(TAG, "Camera opened")
+                    Log.d(TAG, "Camera opened successfully")
                     cameraDevice = camera
                     statusText.text = "Camera ready"
                     createCaptureSession()
                 }
+                
                 override fun onDisconnected(camera: CameraDevice) {
+                    Log.w(TAG, "Camera disconnected")
                     cameraDevice = null
                     statusText.text = "Camera disconnected"
                 }
+                
                 override fun onError(camera: CameraDevice, error: Int) {
+                    Log.e(TAG, "Camera error: $error")
                     cameraDevice = null
                     statusText.text = "Camera error: $error"
+                    Toast.makeText(this@MainActivity, "Camera error: $error", Toast.LENGTH_LONG).show()
                 }
             }, backgroundHandler)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to open camera", e)
             statusText.text = "Failed: ${e.message}"
+            Toast.makeText(this, "Failed to open camera: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
     
@@ -227,10 +235,13 @@ class MainActivity : AppCompatActivity() {
             val characteristics = cameraManager.getCameraCharacteristics(id)
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
             if (facing == currentLensFacing) {
+                Log.d(TAG, "Found camera with ID: $id, facing: $facing")
                 return id
             }
         }
-        return cameraManager.cameraIdList.firstOrNull() ?: "0"
+        val defaultId = cameraManager.cameraIdList.firstOrNull() ?: "0"
+        Log.d(TAG, "Using default camera ID: $defaultId")
+        return defaultId
     }
     
     private fun createCaptureSession() {
@@ -240,13 +251,16 @@ class MainActivity : AppCompatActivity() {
             listOf(surface),
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
+                    Log.d(TAG, "Capture session configured")
                     captureSession = session
                     startPreview(surface)
                     statusText.text = "Preview running"
                 }
+                
                 override fun onConfigureFailed(session: CameraCaptureSession) {
+                    Log.e(TAG, "Capture session configuration failed")
                     statusText.text = "Configuration failed"
-                    Toast.makeText(this@MainActivity, "Camera config failed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Camera configuration failed", Toast.LENGTH_LONG).show()
                 }
             },
             backgroundHandler
@@ -254,18 +268,29 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun startPreview(surface: Surface) {
-        val camera = cameraDevice ?: return
-        val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-        captureRequest.addTarget(surface)
+        val camera = cameraDevice
+        if (camera == null) {
+            Log.e(TAG, "Camera device is null, cannot start preview")
+            statusText.text = "Camera device is null"
+            return
+        }
         
-        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-        captureRequest.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
-        captureRequest.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
-        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-        captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
-        
-        captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
-        Log.d(TAG, "Preview started")
+        try {
+            val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+            captureRequest.addTarget(surface)
+            
+            captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+            captureRequest.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
+            captureRequest.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
+            captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+            captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
+            
+            captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
+            Log.d(TAG, "Preview started successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start preview", e)
+            statusText.text = "Preview failed: ${e.message}"
+        }
     }
     
     private fun updateCameraControls() {
@@ -283,10 +308,15 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun closeCamera() {
-        captureSession?.close()
-        captureSession = null
-        cameraDevice?.close()
-        cameraDevice = null
+        try {
+            captureSession?.close()
+            captureSession = null
+            cameraDevice?.close()
+            cameraDevice = null
+            Log.d(TAG, "Camera closed")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing camera", e)
+        }
     }
     
     private fun startBackgroundThread() {
@@ -301,7 +331,7 @@ class MainActivity : AppCompatActivity() {
             backgroundThread = null
             backgroundHandler = null
         } catch (e: InterruptedException) {
-            e.printStackTrace()
+            Log.e(TAG, "Error stopping background thread", e)
         }
     }
     
@@ -309,12 +339,26 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_CAMERA_PERMISSION) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                statusText.text = "Permission granted"
+                statusText.text = "Permission granted, opening camera"
                 openCamera()
             } else {
-                statusText.text = "Permission denied"
+                statusText.text = "Camera permission denied"
+                Toast.makeText(this, "Camera permission is required for this app", Toast.LENGTH_LONG).show()
             }
         }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        if (::cameraManager.isInitialized && 
+            ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            openCamera()
+        }
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        closeCamera()
     }
     
     override fun onDestroy() {
