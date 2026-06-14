@@ -9,12 +9,10 @@ import android.os.HandlerThread
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import java.util.Arrays
 
 class MainActivity : AppCompatActivity() {
     
@@ -29,7 +27,7 @@ class MainActivity : AppCompatActivity() {
     
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
-    private var cameraManager: CameraManager? = null
+    private lateinit var cameraManager: CameraManager
     private var backgroundHandler: Handler? = null
     private var backgroundThread: HandlerThread? = null
     
@@ -177,7 +175,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         val cameraId = getCameraId()
-        cameraManager?.openCamera(cameraId, object : CameraDevice.StateCallback() {
+        cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
                 cameraDevice = camera
                 createCaptureSession()
@@ -192,21 +190,21 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun getCameraId(): String {
-        cameraManager?.cameraIdList?.forEach { id ->
-            val characteristics = cameraManager!!.getCameraCharacteristics(id)
+        cameraManager.cameraIdList.forEach { id ->
+            val characteristics = cameraManager.getCameraCharacteristics(id)
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
             if (facing == currentLensFacing) {
                 return id
             }
         }
-        return cameraManager?.cameraIdList?.firstOrNull() ?: "0"
+        return cameraManager.cameraIdList.firstOrNull() ?: "0"
     }
     
     private fun createCaptureSession() {
         val surface = surfaceView.holder.surface
         
         cameraDevice?.createCaptureSession(
-            Arrays.asList(surface),
+            listOf(surface),
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     captureSession = session
@@ -221,29 +219,31 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun startPreview(surface: Surface) {
-        val captureRequest = cameraDevice?.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-        captureRequest?.addTarget(surface)
+        val camera = cameraDevice ?: return
+        val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+        captureRequest.addTarget(surface)
         
-        captureRequest?.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-        captureRequest?.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
-        captureRequest?.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
-        captureRequest?.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-        captureRequest?.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
+        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+        captureRequest.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
+        captureRequest.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
+        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+        captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
         
-        captureSession?.setRepeatingRequest(captureRequest?.build(), null, backgroundHandler)
+        captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
     }
     
     private fun updateCameraControls() {
-        val captureRequest = cameraDevice?.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-        captureRequest?.addTarget(surfaceView.holder.surface)
+        val camera = cameraDevice ?: return
+        val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+        captureRequest.addTarget(surfaceView.holder.surface)
         
-        captureRequest?.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-        captureRequest?.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
-        captureRequest?.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
-        captureRequest?.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-        captureRequest?.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
+        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+        captureRequest.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
+        captureRequest.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
+        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+        captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
         
-        captureSession?.setRepeatingRequest(captureRequest?.build(), null, backgroundHandler)
+        captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
     }
     
     private fun closeCamera() {
@@ -255,7 +255,7 @@ class MainActivity : AppCompatActivity() {
     
     private fun startBackgroundThread() {
         backgroundThread = HandlerThread("CameraBackground").apply { start() }
-        backgroundHandler = Handler(backgroundThread?.looper)
+        backgroundHandler = Handler(backgroundThread!!.looper)
     }
     
     private fun stopBackgroundThread() {
