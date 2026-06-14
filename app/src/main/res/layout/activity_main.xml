@@ -3,16 +3,116 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center"
     android:background="#1A1A1A">
     
+    <SurfaceView
+        android:id="@+id/surfaceView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+    
     <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
+        android:id="@+id/textInfo"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="GVT-X"
-        android:textSize="32sp"
-        android:textColor="#FF6B35"
-        android:textStyle="bold" />
+        android:text="📷 ISO: 100 | Shutter: 1/60s | Focus: 0%"
+        android:textColor="#00D4FF"
+        android:textSize="12sp"
+        android:background="#333333"
+        android:padding="8dp"
+        android:gravity="center" />
+    
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#222222">
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ISO"
+            android:textColor="#FF6B35"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp" />
+        
+        <SeekBar
+            android:id="@+id/seekIso"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="8" />
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Shutter Speed"
+            android:textColor="#FF6B35"
+            android:textSize="14sp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="4dp" />
+        
+        <SeekBar
+            android:id="@+id/seekShutter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="10" />
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Focus Distance"
+            android:textColor="#FF6B35"
+            android:textSize="14sp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="4dp" />
+        
+        <SeekBar
+            android:id="@+id/seekFocus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100" />
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp">
+            
+            <Button
+                android:id="@+id/btnCapture"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="📸 CAPTURE"
+                android:backgroundTint="#FF6B35"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="8dp" />
+            
+            <Button
+                android:id="@+id/btnRecord"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="⏺ RECORD"
+                android:backgroundTint="#FF3B30"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="8dp" />
+            
+            <Button
+                android:id="@+id/btnSwitchLens"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="🔄 LENS"
+                android:backgroundTint="#333333"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+            
+        </LinearLayout>
+        
+    </LinearLayout>
     
 </LinearLayout>
