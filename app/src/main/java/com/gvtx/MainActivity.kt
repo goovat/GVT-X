@@ -1,11 +1,18 @@
 package com.gvtx
 
 import android.Manifest
+import android.content.ContentValues
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.hardware.camera2.*
+import android.media.ImageReader
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
+import android.provider.MediaStore
 import android.util.Log
 import android.view.Surface
 import android.view.SurfaceHolder
@@ -15,6 +22,10 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
     
@@ -30,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
+    private var imageReader: ImageReader? = null
     private lateinit var cameraManager: CameraManager
     private var backgroundHandler: Handler? = null
     private var backgroundThread: HandlerThread? = null
@@ -49,7 +61,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         
-        // Initialize ALL views first - this is critical
         surfaceView = findViewById(R.id.surfaceView)
         textInfo = findViewById(R.id.textInfo)
         seekIso = findViewById(R.id.seekIso)
@@ -60,7 +71,6 @@ class MainActivity : AppCompatActivity() {
         btnRecord = findViewById(R.id.btnRecord)
         statusText = findViewById(R.id.statusText)
         
-        // Now statusText is initialized and safe to use
         statusText.text = "GVT-X Ready"
         statusText.visibility = View.VISIBLE
         
@@ -72,13 +82,25 @@ class MainActivity : AppCompatActivity() {
         
         startBackgroundThread()
         
-        // Check permission AFTER everything is initialized
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            statusText.text = "Requesting camera permission..."
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQUEST_CAMERA_PERMISSION)
         } else {
-            statusText.text = "Camera permission granted"
-            // Don't call openCamera here - wait for surfaceCreated
+            checkStoragePermission()
+        }
+    }
+    
+    private fun checkStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO
+                ), 201)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 201)
+            }
         }
     }
     
@@ -86,16 +108,9 @@ class MainActivity : AppCompatActivity() {
         seekIso.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 currentIso = when (progress) {
-                    0 -> 100
-                    1 -> 200
-                    2 -> 400
-                    3 -> 800
-                    4 -> 1600
-                    5 -> 3200
-                    6 -> 6400
-                    7 -> 12800
-                    8 -> 25600
-                    else -> 100
+                    0 -> 100; 1 -> 200; 2 -> 400; 3 -> 800
+                    4 -> 1600; 5 -> 3200; 6 -> 6400; 7 -> 12800
+                    8 -> 25600; else -> 100
                 }
                 updateCameraControls()
                 updateInfoText()
@@ -107,18 +122,9 @@ class MainActivity : AppCompatActivity() {
         seekShutter.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 currentShutterUs = when (progress) {
-                    0 -> 1000000L
-                    1 -> 500000L
-                    2 -> 250000L
-                    3 -> 125000L
-                    4 -> 62500L
-                    5 -> 33333L
-                    6 -> 16666L
-                    7 -> 8333L
-                    8 -> 4167L
-                    9 -> 2083L
-                    10 -> 1000L
-                    else -> 16666L
+                    0 -> 1000000L; 1 -> 500000L; 2 -> 250000L; 3 -> 125000L
+                    4 -> 62500L; 5 -> 33333L; 6 -> 16666L; 7 -> 8333L
+                    8 -> 4167L; 9 -> 2083L; 10 -> 1000L; else -> 16666L
                 }
                 updateCameraControls()
                 updateInfoText()
@@ -149,16 +155,15 @@ class MainActivity : AppCompatActivity() {
     
     private fun setupButtons() {
         btnCapture.setOnClickListener {
-            Toast.makeText(this, "Photo captured!", Toast.LENGTH_SHORT).show()
-            statusText.text = "Photo captured"
+            statusText.text = "Capturing photo..."
+            takePicture()
         }
         
         btnRecord.setOnClickListener {
             isRecording = !isRecording
             btnRecord.text = if (isRecording) "RECORDING..." else "RECORD"
-            val message = if (isRecording) "Recording started" else "Recording stopped"
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-            statusText.text = message
+            statusText.text = if (isRecording) "Recording started" else "Recording stopped"
+            Toast.makeText(this, if (isRecording) "Video recording started" else "Video recording stopped", Toast.LENGTH_SHORT).show()
         }
         
         btnSwitchLens.setOnClickListener {
@@ -236,8 +241,18 @@ class MainActivity : AppCompatActivity() {
     private fun createCaptureSession() {
         val surface = surfaceView.holder.surface
         
+        // Setup ImageReader for photo capture
+        imageReader = ImageReader.newInstance(1920, 1080, android.graphics.ImageFormat.JPEG, 2)
+        imageReader?.setOnImageAvailableListener({ reader ->
+            val image = reader.acquireLatestImage()
+            if (image != null) {
+                saveImage(image)
+                image.close()
+            }
+        }, backgroundHandler)
+        
         cameraDevice?.createCaptureSession(
-            listOf(surface),
+            listOf(surface, imageReader?.surface),
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     captureSession = session
@@ -268,6 +283,53 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "Preview started")
     }
     
+    private fun takePicture() {
+        val camera = cameraDevice ?: return
+        val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+        captureRequest.addTarget(imageReader?.surface!!)
+        
+        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+        captureRequest.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
+        captureRequest.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
+        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+        captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
+        
+        captureSession?.capture(captureRequest.build(), null, backgroundHandler)
+        statusText.text = "Photo captured! Saving..."
+    }
+    
+    private fun saveImage(image: android.media.Image) {
+        val buffer = image.planes[0].buffer
+        val bytes = ByteArray(buffer.remaining())
+        buffer.get(bytes)
+        
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val filename = "GVTX_$timestamp.jpg"
+        
+        try {
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/GVT-X")
+                }
+            }
+            
+            val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            uri?.let {
+                contentResolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.write(bytes)
+                    statusText.text = "Photo saved: $filename"
+                    Toast.makeText(this, "Photo saved to Gallery!", Toast.LENGTH_LONG).show()
+                    Log.d(TAG, "Photo saved: $filename")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save image", e)
+            statusText.text = "Failed to save: ${e.message}"
+        }
+    }
+    
     private fun updateCameraControls() {
         val camera = cameraDevice ?: return
         val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
@@ -287,6 +349,8 @@ class MainActivity : AppCompatActivity() {
         captureSession = null
         cameraDevice?.close()
         cameraDevice = null
+        imageReader?.close()
+        imageReader = null
     }
     
     private fun startBackgroundThread() {
@@ -307,11 +371,22 @@ class MainActivity : AppCompatActivity() {
     
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CAMERA_PERMISSION && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            statusText.text = "Permission granted"
-            openCamera()
-        } else {
-            statusText.text = "Permission denied"
+        when (requestCode) {
+            REQUEST_CAMERA_PERMISSION -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    statusText.text = "Camera permission granted"
+                    checkStoragePermission()
+                } else {
+                    statusText.text = "Camera permission denied"
+                }
+            }
+            201 -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    statusText.text = "Storage permission granted"
+                } else {
+                    statusText.text = "Storage permission denied - photos won't save"
+                }
+            }
         }
     }
     
