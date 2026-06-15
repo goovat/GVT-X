@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.ImageFormat
 import android.hardware.camera2.*
 import android.media.ImageReader
+import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -42,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
+    private var mediaRecorder: MediaRecorder? = null
     private lateinit var cameraManager: CameraManager
     private var backgroundHandler: Handler? = null
     private var backgroundThread: HandlerThread? = null
@@ -83,6 +85,23 @@ class MainActivity : AppCompatActivity() {
         
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQUEST_CAMERA_PERMISSION)
+        } else {
+            checkStoragePermission()
+        }
+    }
+    
+    private fun checkStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO
+                ), 201)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 201)
+            }
         }
     }
     
@@ -94,7 +113,6 @@ class MainActivity : AppCompatActivity() {
                     4 -> 1600; 5 -> 3200; 6 -> 6400; 7 -> 12800
                     8 -> 25600; else -> 100
                 }
-                updateCameraControls()
                 updateInfoText()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -108,7 +126,6 @@ class MainActivity : AppCompatActivity() {
                     4 -> 62500L; 5 -> 33333L; 6 -> 16666L; 7 -> 8333L
                     8 -> 4167L; 9 -> 2083L; 10 -> 1000L; else -> 16666L
                 }
-                updateCameraControls()
                 updateInfoText()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -118,7 +135,6 @@ class MainActivity : AppCompatActivity() {
         seekFocus.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 currentFocus = progress / 100f
-                updateCameraControls()
                 updateInfoText()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -132,7 +148,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             "1/${1000000 / currentShutterUs}"
         }
-        textInfo.text = "ISO: $currentIso | Shutter: $shutterString | Focus: ${(currentFocus * 100).toInt()}%"
+        textInfo.text = "ISO: $currentIso | Shutter: $shutterString | Focus: ${(currentFocus * 100).toInt()}% (Auto mode)"
     }
     
     private fun setupButtons() {
@@ -142,9 +158,11 @@ class MainActivity : AppCompatActivity() {
         }
         
         btnRecord.setOnClickListener {
-            isRecording = !isRecording
-            btnRecord.text = if (isRecording) "RECORDING..." else "RECORD"
-            statusText.text = if (isRecording) "Recording started" else "Recording stopped"
+            if (isRecording) {
+                stopRecording()
+            } else {
+                startRecording()
+            }
         }
         
         btnSwitchLens.setOnClickListener {
@@ -264,15 +282,13 @@ class MainActivity : AppCompatActivity() {
         val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
         captureRequest.addTarget(surface)
         
-        // Set manual controls
-        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-        captureRequest.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
-        captureRequest.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
-        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-        captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
+        // Use AUTO mode for reliable preview
+        captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
+        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
         
         captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
-        Log.d(TAG, "Preview started with ISO=$currentIso, Shutter=$currentShutterUs")
+        Log.d(TAG, "Preview started with AUTO mode")
     }
     
     private fun takePicture() {
@@ -280,14 +296,27 @@ class MainActivity : AppCompatActivity() {
         val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
         captureRequest.addTarget(imageReader?.surface!!)
         
-        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-        captureRequest.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
-        captureRequest.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
-        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-        captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
+        // Use AUTO mode for capture
+        captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
+        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
         
         captureSession?.capture(captureRequest.build(), null, backgroundHandler)
         statusText.text = "Photo captured! Saving..."
+    }
+    
+    private fun startRecording() {
+        // TODO: Implement MediaRecorder
+        isRecording = true
+        btnRecord.text = "RECORDING..."
+        statusText.text = "Video recording - Coming soon"
+        Toast.makeText(this, "Video recording coming soon", Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun stopRecording() {
+        isRecording = false
+        btnRecord.text = "RECORD"
+        statusText.text = "Recording stopped"
     }
     
     private fun saveImage(image: android.media.Image) {
@@ -322,20 +351,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun updateCameraControls() {
-        val camera = cameraDevice ?: return
-        val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-        captureRequest.addTarget(surfaceView.holder.surface)
-        
-        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-        captureRequest.set(CaptureRequest.SENSOR_SENSITIVITY, currentIso)
-        captureRequest.set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterUs)
-        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-        captureRequest.set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocus)
-        
-        captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
-    }
-    
     private fun closeCamera() {
         captureSession?.close()
         captureSession = null
@@ -363,11 +378,21 @@ class MainActivity : AppCompatActivity() {
     
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CAMERA_PERMISSION) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                statusText.text = "Camera permission granted"
-            } else {
-                statusText.text = "Camera permission denied"
+        when (requestCode) {
+            REQUEST_CAMERA_PERMISSION -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    statusText.text = "Camera permission granted"
+                    checkStoragePermission()
+                } else {
+                    statusText.text = "Camera permission denied"
+                }
+            }
+            201 -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    statusText.text = "Storage permission granted"
+                } else {
+                    statusText.text = "Storage permission denied - photos won't save"
+                }
             }
         }
     }
