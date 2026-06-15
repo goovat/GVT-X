@@ -19,7 +19,9 @@ import android.util.Log
 import android.util.Size
 import android.view.Surface
 import android.view.TextureView
+import android.view.View
 import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -101,19 +103,19 @@ class MainActivity : AppCompatActivity() {
     private fun setupModes() {
         btnModePhoto.setOnClickListener {
             isVideoMode = false
-            btnModePhoto.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_accent1_accent1_light)
-            btnModeVideo.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
-            btnCapture.visibility = Button.VISIBLE
-            btnRecord.visibility = Button.GONE
+            btnModePhoto.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+            btnModeVideo.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
+            btnCapture.visibility = View.VISIBLE
+            btnRecord.visibility = View.GONE
             Toast.makeText(this, "Photo Mode", Toast.LENGTH_SHORT).show()
         }
         
         btnModeVideo.setOnClickListener {
             isVideoMode = true
-            btnModeVideo.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_accent1_accent1_light)
-            btnModePhoto.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
-            btnCapture.visibility = Button.GONE
-            btnRecord.visibility = Button.VISIBLE
+            btnModeVideo.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+            btnModePhoto.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
+            btnCapture.visibility = View.GONE
+            btnRecord.visibility = View.VISIBLE
             Toast.makeText(this, "Video Mode", Toast.LENGTH_SHORT).show()
         }
         
@@ -164,38 +166,38 @@ class MainActivity : AppCompatActivity() {
         }
         
         btnLowLight.setOnClickListener {
-            btnLowLight.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_accent1_accent1_light)
-            btnHDR.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
+            btnLowLight.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+            btnHDR.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
             Toast.makeText(this, "Low-Light Mode", Toast.LENGTH_SHORT).show()
         }
         
         btnHDR.setOnClickListener {
-            btnHDR.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_accent1_accent1_light)
-            btnLowLight.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
+            btnHDR.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+            btnLowLight.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
             Toast.makeText(this, "HDR Mode", Toast.LENGTH_SHORT).show()
         }
         
         btnZoom1x.setOnClickListener {
             currentZoom = 1.0f
-            btnZoom1x.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_accent1_accent1_light)
-            btnZoom2x.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
-            btnZoom5x.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
+            btnZoom1x.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+            btnZoom2x.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
+            btnZoom5x.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
             Toast.makeText(this, "1x Zoom", Toast.LENGTH_SHORT).show()
         }
         
         btnZoom2x.setOnClickListener {
             currentZoom = 2.0f
-            btnZoom2x.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_accent1_accent1_light)
-            btnZoom1x.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
-            btnZoom5x.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
+            btnZoom2x.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+            btnZoom1x.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
+            btnZoom5x.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
             Toast.makeText(this, "2x Zoom", Toast.LENGTH_SHORT).show()
         }
         
         btnZoom5x.setOnClickListener {
             currentZoom = 5.0f
-            btnZoom5x.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_accent1_accent1_light)
-            btnZoom1x.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
-            btnZoom2x.backgroundTintList = androidx.core.content.ContextCompat.getColorStateList(this, androidx.core.R.color.system_neutral1_1000)
+            btnZoom5x.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+            btnZoom1x.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
+            btnZoom2x.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
             Toast.makeText(this, "5x Zoom", Toast.LENGTH_SHORT).show()
         }
     }
@@ -243,6 +245,8 @@ class MainActivity : AppCompatActivity() {
         
         if (permissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(), REQUEST_CAMERA_PERMISSION)
+        } else {
+            openCamera()
         }
     }
 
@@ -346,7 +350,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRecording() {
-        // Simplified for now - full implementation from previous version
         Toast.makeText(this, "Video recording coming soon", Toast.LENGTH_SHORT).show()
     }
 
