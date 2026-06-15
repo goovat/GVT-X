@@ -61,7 +61,7 @@
                 android:layout_weight="1"
                 android:text="📸 CAPTURE"
                 android:backgroundTint="#FF6B35"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textStyle="bold"
                 android:layout_marginEnd="8dp" />
             
@@ -70,9 +70,9 @@
                 android:layout_width="0dp"
                 android:layout_height="56dp"
                 android:layout_weight="1"
-                android:text="⏺ RECORD"
+                android:text="🎥 RECORD"
                 android:backgroundTint="#FF3B30"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textStyle="bold"
                 android:layout_marginEnd="8dp" />
             
@@ -83,7 +83,18 @@
                 android:layout_weight="1"
                 android:text="🔄 LENS"
                 android:backgroundTint="#333333"
-                android:textSize="16sp"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="8dp" />
+            
+            <Button
+                android:id="@+id/btnSettings"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="⚙️"
+                android:backgroundTint="#444444"
+                android:textSize="20sp"
                 android:textStyle="bold" />
             
         </LinearLayout>
@@ -91,9 +102,9 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Manual Controls (Coming Soon)"
+            android:text="Manual Controls & Pro Features (Coming Soon)"
             android:textColor="#888888"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:gravity="center"
             android:layout_gravity="center" />
             
