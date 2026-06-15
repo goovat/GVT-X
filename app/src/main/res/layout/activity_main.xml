@@ -22,8 +22,8 @@
         android:layout_weight="1"
         android:background="#000000">
         
-        <SurfaceView
-            android:id="@+id/surfaceView"
+        <TextureView
+            android:id="@+id/textureView"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
             
@@ -102,7 +102,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Manual Controls Coming Soon"
+            android:text="Pro Features Coming Soon"
             android:textColor="#888888"
             android:textSize="11sp"
             android:gravity="center"
