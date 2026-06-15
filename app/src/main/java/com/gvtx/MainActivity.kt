@@ -31,9 +31,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var surfaceView: SurfaceView
     private lateinit var textInfo: TextView
-    private lateinit var seekIso: SeekBar
-    private lateinit var seekShutter: SeekBar
-    private lateinit var seekFocus: SeekBar
     private lateinit var btnCapture: Button
     private lateinit var btnSwitchLens: Button
     private lateinit var btnRecord: Button
@@ -46,7 +43,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraManager: CameraManager
     private var backgroundHandler: Handler? = null
     private var backgroundThread: HandlerThread? = null
-    private var previewSize: Size? = null
 
     private var currentLensFacing = CameraCharacteristics.LENS_FACING_BACK
     private var isRecording = false
@@ -63,29 +59,20 @@ class MainActivity : AppCompatActivity() {
 
         surfaceView = findViewById(R.id.surfaceView)
         textInfo = findViewById(R.id.textInfo)
-        seekIso = findViewById(R.id.seekIso)
-        seekShutter = findViewById(R.id.seekShutter)
-        seekFocus = findViewById(R.id.seekFocus)
         btnCapture = findViewById(R.id.btnCapture)
         btnSwitchLens = findViewById(R.id.btnSwitchLens)
         btnRecord = findViewById(R.id.btnRecord)
         statusText = findViewById(R.id.statusText)
 
         statusText.text = "GVT-X Initializing..."
-        textInfo.text = "Auto Mode | Tap CAPTURE to take photo"
+        textInfo.text = "Ready | Tap CAPTURE for photo | RECORD for video"
 
         cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
-        
-        // Disable manual controls initially
-        seekIso.isEnabled = false
-        seekShutter.isEnabled = false
-        seekFocus.isEnabled = false
         
         setupButtons()
         setupSurfaceView()
 
         startBackgroundThread()
-
         checkPermissions()
     }
 
@@ -190,10 +177,7 @@ class MainActivity : AppCompatActivity() {
             val characteristics = cameraManager.getCameraCharacteristics(id)
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
             if (facing == currentLensFacing) {
-                // Get preview size
-                val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                previewSize = configs?.getOutputSizes(SurfaceHolder::class.java)?.maxByOrNull { it.width * it.height }
-                Log.d(TAG, "Found camera ID: $id, preview size: $previewSize")
+                Log.d(TAG, "Found camera ID: $id")
                 return id
             }
         }
@@ -238,7 +222,8 @@ class MainActivity : AppCompatActivity() {
     private fun startPreview() {
         val camera = cameraDevice ?: return
         val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-        captureRequest.addTarget(surfaceView.holder.surface)
+        val surface = surfaceView.holder.surface
+        captureRequest.addTarget(surface)
         
         // Use AUTO mode for reliable preview
         captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
@@ -252,7 +237,12 @@ class MainActivity : AppCompatActivity() {
     private fun takePicture() {
         val camera = cameraDevice ?: return
         val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
-        captureRequest.addTarget(imageReader?.surface!!)
+        val imageSurface = imageReader?.surface
+        if (imageSurface == null) {
+            statusText.text = "Error: ImageReader not ready"
+            return
+        }
+        captureRequest.addTarget(imageSurface)
         
         captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
         captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
@@ -270,46 +260,46 @@ class MainActivity : AppCompatActivity() {
             videoPath = videoFile.absolutePath
             
             // Setup MediaRecorder
-            mediaRecorder = MediaRecorder()
-            cameraDevice?.let { camera ->
-                // Get the preview surface
-                val previewSurface = surfaceView.holder.surface
+            mediaRecorder = MediaRecorder().apply {
+                setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setVideoEncodingBitRate(5000000)
+                setVideoFrameRate(30)
+                setVideoSize(1920, 1080)
+                setOutputFile(videoPath)
                 
-                mediaRecorder?.apply {
-                    setVideoSource(MediaRecorder.VideoSource.SURFACE)
-                    setAudioSource(MediaRecorder.AudioSource.MIC)
-                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                    setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                    setVideoEncodingBitRate(5000000)
-                    setVideoFrameRate(30)
-                    setVideoSize(1920, 1080)
-                    setOutputFile(videoPath)
-                    
-                    prepare()
-                    start()
-                }
-                
-                // Create recording session
-                val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
-                captureRequest.addTarget(previewSurface)
-                captureRequest.addTarget(mediaRecorder?.surface)
-                
-                captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
-                captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-                captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                
-                captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
-                
-                isRecording = true
-                btnRecord.text = "⏹️ STOP"
-                statusText.text = "Recording video..."
-                Toast.makeText(this@MainActivity, "Video recording started", Toast.LENGTH_SHORT).show()
+                prepare()
+                start()
             }
+            
+            // Update UI
+            isRecording = true
+            btnRecord.text = "⏹️ STOP"
+            statusText.text = "Recording video..."
+            Toast.makeText(this@MainActivity, "Video recording started", Toast.LENGTH_SHORT).show()
+            
+            // Update preview for recording
+            val camera = cameraDevice ?: return
+            val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+            val surface = surfaceView.holder.surface
+            captureRequest.addTarget(surface)
+            mediaRecorder?.surface?.let { captureRequest.addTarget(it) }
+            
+            captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
+            captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+            captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            
+            captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
+            
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start recording", e)
             statusText.text = "Recording failed: ${e.message}"
             Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show()
+            mediaRecorder?.release()
+            mediaRecorder = null
         }
     }
 
@@ -341,7 +331,7 @@ class MainActivity : AppCompatActivity() {
             isRecording = false
             btnRecord.text = "⏺ RECORD"
             statusText.text = "Video saved to Gallery"
-            Toast.makeText(this, "Video saved: $videoPath", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Video saved", Toast.LENGTH_LONG).show()
             
             // Restart preview
             startPreview()
