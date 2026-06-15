@@ -1,0 +1,40 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Circular background -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M54,0 L54,0 A54,54 0 1,1 0,54 L0,54 A54,54 0 1,1 54,0z" />
+    
+    <!-- Lens outer ring -->
+    <circle
+        android:fillColor="#FF6B35"
+        android:cx="54"
+        android:cy="54"
+        android:r="22" />
+    
+    <!-- Lens inner ring -->
+    <circle
+        android:fillColor="#00D4FF"
+        android:cx="54"
+        android:cy="54"
+        android:r="14" />
+    
+    <!-- Lens center -->
+    <circle
+        android:fillColor="#1A1A1A"
+        android:cx="54"
+        android:cy="54"
+        android:r="7" />
+    
+    <!-- Flash -->
+    <circle
+        android:fillColor="#FFD700"
+        android:cx="76"
+        android:cy="38"
+        android:r="3" />
+    
+</vector>
