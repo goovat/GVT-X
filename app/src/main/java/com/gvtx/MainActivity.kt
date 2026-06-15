@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.provider.MediaStore
 import android.util.Log
+import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -43,11 +44,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraManager: CameraManager
     private var backgroundHandler: Handler? = null
     private var backgroundThread: HandlerThread? = null
+    private var previewSize: Size? = null
 
     private var currentLensFacing = CameraCharacteristics.LENS_FACING_BACK
     private var isRecording = false
     private var videoPath: String = ""
-    private var recordingStartTime: Long = 0
     
     // Settings
     private var videoQuality = "1080p"
@@ -104,8 +105,6 @@ class MainActivity : AppCompatActivity() {
         
         if (permissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(), REQUEST_CAMERA_PERMISSION)
-        } else {
-            openCamera()
         }
     }
 
@@ -183,7 +182,7 @@ class MainActivity : AppCompatActivity() {
     private fun showAboutDialog() {
         AlertDialog.Builder(this)
             .setTitle("GVT-X Camera")
-            .setMessage("Version 1.0\n\nProfessional Camera App\n\nFeatures:\n- Photo Capture\n- Video Recording\n- Front/Back Camera\n- Manual Controls Coming Soon")
+            .setMessage("Version 1.0\n\nProfessional Camera App\n\nFeatures:\n- Photo Capture\n- Video Recording\n- Front/Back Camera\n- Settings Menu")
             .setPositiveButton("OK", null)
             .show()
     }
@@ -193,7 +192,9 @@ class MainActivity : AppCompatActivity() {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 Log.d(TAG, "Surface created")
                 statusText.text = "Opening camera..."
-                openCamera()
+                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    openCamera()
+                }
             }
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
                 Log.d(TAG, "Surface changed: $width x $height")
@@ -242,7 +243,10 @@ class MainActivity : AppCompatActivity() {
             val characteristics = cameraManager.getCameraCharacteristics(id)
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
             if (facing == currentLensFacing) {
-                Log.d(TAG, "Found camera ID: $id")
+                // Get preview size
+                val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                previewSize = map?.getOutputSizes(SurfaceHolder::class.java)?.maxByOrNull { it.width * it.height }
+                Log.d(TAG, "Found camera ID: $id, preview size: ${previewSize?.width}x${previewSize?.height}")
                 return id
             }
         }
@@ -315,11 +319,8 @@ class MainActivity : AppCompatActivity() {
         statusText.text = "Photo captured!"
     }
 
-    private fun startRecording() {
+    private fun setupMediaRecorder(): Boolean {
         try {
-            closeCamera()
-            Thread.sleep(500)
-            
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val videoFile = File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "GVTX_$timestamp.mp4")
             videoPath = videoFile.absolutePath
@@ -335,10 +336,9 @@ class MainActivity : AppCompatActivity() {
                     setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 }
                 
-                val (width, height) = when (videoQuality) {
-                    "720p" -> 1280 to 720
-                    else -> 1920 to 1080
-                }
+                // Use preview size for video
+                val width = previewSize?.width ?: 1920
+                val height = previewSize?.height ?: 1080
                 setVideoSize(width, height)
                 setVideoFrameRate(frameRate)
                 setVideoEncodingBitRate(5000000)
@@ -346,58 +346,83 @@ class MainActivity : AppCompatActivity() {
                 
                 prepare()
             }
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "MediaRecorder setup failed", e)
+            statusText.text = "MediaRecorder error: ${e.message}"
+            return false
+        }
+    }
+
+    private fun startRecording() {
+        try {
+            if (!setupMediaRecorder()) {
+                return
+            }
             
-            val cameraId = getCameraId()
-            cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                override fun onOpened(camera: CameraDevice) {
-                    cameraDevice = camera
-                    val surface = surfaceView.holder.surface
-                    val recorderSurface = mediaRecorder?.surface
+            // Stop current preview session
+            captureSession?.close()
+            captureSession = null
+            
+            val recorderSurface = mediaRecorder?.surface
+            if (recorderSurface == null) {
+                statusText.text = "Recorder surface not available"
+                return
+            }
+            
+            val surface = surfaceView.holder.surface
+            val camera = cameraDevice
+            
+            if (camera == null) {
+                statusText.text = "Camera not available"
+                return
+            }
+            
+            camera.createCaptureSession(
+                listOf(surface, recorderSurface),
+                object : CameraCaptureSession.StateCallback() {
+                    override fun onConfigured(session: CameraCaptureSession) {
+                        captureSession = session
+                        val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                        captureRequest.addTarget(surface)
+                        captureRequest.addTarget(recorderSurface)
+                        
+                        captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
+                        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+                        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                        
+                        session.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
+                        mediaRecorder?.start()
+                        
+                        isRecording = true
+                        btnRecord.text = "STOP"
+                        statusText.text = "Recording video..."
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Recording started", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                     
-                    camera.createCaptureSession(
-                        listOf(surface, recorderSurface),
-                        object : CameraCaptureSession.StateCallback() {
-                            override fun onConfigured(session: CameraCaptureSession) {
-                                captureSession = session
-                                val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
-                                captureRequest.addTarget(surface)
-                                recorderSurface?.let { captureRequest.addTarget(it) }
-                                
-                                captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
-                                captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-                                captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                                
-                                session.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
-                                mediaRecorder?.start()
-                                
-                                isRecording = true
-                                btnRecord.text = "STOP"
-                                recordingStartTime = System.currentTimeMillis()
-                                statusText.text = "Recording video..."
-                                runOnUiThread {
-                                    Toast.makeText(this@MainActivity, "Recording started", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                            override fun onConfigureFailed(session: CameraCaptureSession) {
-                                statusText.text = "Recording config failed"
-                            }
-                        },
-                        backgroundHandler
-                    )
-                }
-                override fun onDisconnected(camera: CameraDevice) {}
-                override fun onError(camera: CameraDevice, error: Int) {
-                    statusText.text = "Recording error: $error"
-                }
-            }, backgroundHandler)
+                    override fun onConfigureFailed(session: CameraCaptureSession) {
+                        statusText.text = "Recording session failed"
+                        Log.e(TAG, "Recording session configuration failed")
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Failed to start recording", Toast.LENGTH_SHORT).show()
+                        }
+                        // Restore preview
+                        createCaptureSession()
+                    }
+                },
+                backgroundHandler
+            )
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start recording", e)
             statusText.text = "Recording failed: ${e.message}"
-            Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Failed to start recording: ${e.message}", Toast.LENGTH_SHORT).show()
             mediaRecorder?.release()
             mediaRecorder = null
-            openCamera()
+            // Restore preview
+            createCaptureSession()
         }
     }
 
@@ -409,7 +434,7 @@ class MainActivity : AppCompatActivity() {
             }
             mediaRecorder = null
             
-            val duration = (System.currentTimeMillis() - recordingStartTime) / 1000
+            // Add video to gallery
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, File(videoPath).name)
                 put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
@@ -428,15 +453,19 @@ class MainActivity : AppCompatActivity() {
             
             isRecording = false
             btnRecord.text = "RECORD"
-            statusText.text = "Video saved (${duration}s)"
+            statusText.text = "Video saved"
             Toast.makeText(this, "Video saved to Gallery", Toast.LENGTH_LONG).show()
             
-            closeCamera()
-            openCamera()
+            // Restore preview session
+            captureSession?.close()
+            captureSession = null
+            createCaptureSession()
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop recording", e)
             statusText.text = "Stop recording failed"
+            // Restore preview
+            createCaptureSession()
         }
     }
 
@@ -478,6 +507,8 @@ class MainActivity : AppCompatActivity() {
         cameraDevice = null
         imageReader?.close()
         imageReader = null
+        mediaRecorder?.release()
+        mediaRecorder = null
     }
 
     private fun startBackgroundThread() {
