@@ -1,6 +1,7 @@
 package com.gvtx
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
@@ -14,11 +15,9 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.provider.MediaStore
 import android.util.Log
-import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -53,7 +52,6 @@ class MainActivity : AppCompatActivity() {
     // Settings
     private var videoQuality = "1080p"
     private var frameRate = 30
-    private var showGrid = false
     private var audioEnabled = true
 
     companion object {
@@ -74,7 +72,7 @@ class MainActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
 
         statusText.text = "GVT-X Ready"
-        textInfo.text = "📸 Photo | 🎥 Video | ⚙️ Settings"
+        textInfo.text = "Photo | Video | Settings"
 
         cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
         
@@ -106,12 +104,14 @@ class MainActivity : AppCompatActivity() {
         
         if (permissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(), REQUEST_CAMERA_PERMISSION)
+        } else {
+            openCamera()
         }
     }
 
     private fun setupButtons() {
         btnCapture.setOnClickListener {
-            statusText.text = "📸 Capturing photo..."
+            statusText.text = "Capturing photo..."
             takePicture()
         }
 
@@ -140,7 +140,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun showSettingsDialog() {
-        val options = arrayOf("Video Quality", "Frame Rate", "Show Grid", "Audio Recording", "About")
+        val options = arrayOf("Video Quality: $videoQuality", "Frame Rate: $frameRate fps", "Audio: ${if (audioEnabled) "ON" else "OFF"}", "About")
         
         AlertDialog.Builder(this)
             .setTitle("GVT-X Settings")
@@ -149,29 +149,21 @@ class MainActivity : AppCompatActivity() {
                     0 -> showVideoQualityDialog()
                     1 -> showFrameRateDialog()
                     2 -> {
-                        showGrid = !showGrid
-                        Toast.makeText(this, "Grid: ${if (showGrid) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
-                    }
-                    3 -> {
                         audioEnabled = !audioEnabled
                         Toast.makeText(this, "Audio: ${if (audioEnabled) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
                     }
-                    4 -> showAboutDialog()
+                    3 -> showAboutDialog()
                 }
             }
             .show()
     }
     
     private fun showVideoQualityDialog() {
-        val qualities = arrayOf("720p", "1080p", "4K (if supported)")
+        val qualities = arrayOf("720p", "1080p")
         AlertDialog.Builder(this)
             .setTitle("Video Quality")
             .setItems(qualities) { _, which ->
-                videoQuality = when (which) {
-                    0 -> "720p"
-                    1 -> "1080p"
-                    else -> "1080p"
-                }
+                videoQuality = qualities[which]
                 Toast.makeText(this, "Quality: $videoQuality", Toast.LENGTH_SHORT).show()
             }
             .show()
@@ -182,12 +174,7 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Frame Rate")
             .setItems(fpsOptions) { _, which ->
-                frameRate = when (which) {
-                    0 -> 24
-                    1 -> 30
-                    2 -> 60
-                    else -> 30
-                }
+                frameRate = fpsOptions[which].toInt()
                 Toast.makeText(this, "FPS: $frameRate", Toast.LENGTH_SHORT).show()
             }
             .show()
@@ -196,7 +183,7 @@ class MainActivity : AppCompatActivity() {
     private fun showAboutDialog() {
         AlertDialog.Builder(this)
             .setTitle("GVT-X Camera")
-            .setMessage("Version 1.0\n\nProfessional Camera App\n\nFeatures:\n• Photo Capture\n• Video Recording\n• Front/Back Camera\n• Manual Controls (Coming Soon)\n• Focus Peaking (Coming Soon)\n• Zebra Stripes (Coming Soon)")
+            .setMessage("Version 1.0\n\nProfessional Camera App\n\nFeatures:\n- Photo Capture\n- Video Recording\n- Front/Back Camera\n- Manual Controls Coming Soon")
             .setPositiveButton("OK", null)
             .show()
     }
@@ -265,7 +252,6 @@ class MainActivity : AppCompatActivity() {
     private fun createCaptureSession() {
         val surface = surfaceView.holder.surface
 
-        // Setup ImageReader for photo capture
         imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, 2)
         imageReader?.setOnImageAvailableListener({ reader ->
             val image = reader.acquireLatestImage()
@@ -331,18 +317,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun startRecording() {
         try {
-            closeCamera() // Close existing session
-            Thread.sleep(500) // Brief pause
+            closeCamera()
+            Thread.sleep(500)
             
-            // Reopen camera for recording
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                statusText.text = "No camera permission"
-                return
-            }
-            
-            val cameraId = getCameraId()
-            
-            // Setup MediaRecorder
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val videoFile = File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "GVTX_$timestamp.mp4")
             videoPath = videoFile.absolutePath
@@ -358,10 +335,8 @@ class MainActivity : AppCompatActivity() {
                     setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 }
                 
-                // Set video quality
                 val (width, height) = when (videoQuality) {
                     "720p" -> 1280 to 720
-                    "4K" -> 3840 to 2160
                     else -> 1920 to 1080
                 }
                 setVideoSize(width, height)
@@ -372,7 +347,7 @@ class MainActivity : AppCompatActivity() {
                 prepare()
             }
             
-            // Open camera for recording
+            val cameraId = getCameraId()
             cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     cameraDevice = camera
@@ -396,9 +371,9 @@ class MainActivity : AppCompatActivity() {
                                 mediaRecorder?.start()
                                 
                                 isRecording = true
-                                btnRecord.text = "⏹️ STOP"
+                                btnRecord.text = "STOP"
                                 recordingStartTime = System.currentTimeMillis()
-                                statusText.text = "🎥 Recording video..."
+                                statusText.text = "Recording video..."
                                 runOnUiThread {
                                     Toast.makeText(this@MainActivity, "Recording started", Toast.LENGTH_SHORT).show()
                                 }
@@ -422,7 +397,6 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show()
             mediaRecorder?.release()
             mediaRecorder = null
-            // Restart preview
             openCamera()
         }
     }
@@ -435,7 +409,6 @@ class MainActivity : AppCompatActivity() {
             }
             mediaRecorder = null
             
-            // Save to gallery
             val duration = (System.currentTimeMillis() - recordingStartTime) / 1000
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, File(videoPath).name)
@@ -454,11 +427,10 @@ class MainActivity : AppCompatActivity() {
             }
             
             isRecording = false
-            btnRecord.text = "🎥 RECORD"
+            btnRecord.text = "RECORD"
             statusText.text = "Video saved (${duration}s)"
             Toast.makeText(this, "Video saved to Gallery", Toast.LENGTH_LONG).show()
             
-            // Reopen camera for preview
             closeCamera()
             openCamera()
             
@@ -489,9 +461,8 @@ class MainActivity : AppCompatActivity() {
             uri?.let {
                 contentResolver.openOutputStream(it)?.use { outputStream ->
                     outputStream.write(bytes)
-                    statusText.text = "Photo saved: $filename"
+                    statusText.text = "Photo saved"
                     Toast.makeText(this, "Photo saved", Toast.LENGTH_SHORT).show()
-                    Log.d(TAG, "Photo saved: $filename")
                 }
             }
         } catch (e: Exception) {
@@ -530,11 +501,11 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_CAMERA_PERMISSION) {
             val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
             if (allGranted) {
-                statusText.text = "All permissions granted"
+                statusText.text = "Permissions granted"
                 openCamera()
             } else {
                 statusText.text = "Permissions required"
-                Toast.makeText(this, "All permissions required", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Camera and storage permissions required", Toast.LENGTH_LONG).show()
             }
         }
     }
