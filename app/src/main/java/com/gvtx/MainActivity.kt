@@ -45,7 +45,7 @@ class MainActivity : AppCompatActivity() {
     private var backgroundHandler: Handler? = null
     private var backgroundThread: HandlerThread? = null
     private var previewSize: Size? = null
-    private var videoSize: Size = Size(1280, 720)  // Start with 720p for reliability
+    private var videoSize: Size = Size(1280, 720)
 
     private var currentLensFacing = CameraCharacteristics.LENS_FACING_BACK
     private var isRecording = false
@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_CAMERA_PERMISSION = 200
+        private const val REQUEST_RECORD_AUDIO_PERMISSION = 201
         private const val TAG = "GVTX"
     }
 
@@ -87,16 +88,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkPermissions() {
         val permissions = mutableListOf<String>()
+        
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.CAMERA)
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        
+        if (audioEnabled && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.RECORD_AUDIO)
         }
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission.READ_MEDIA_IMAGES)
                 permissions.add(Manifest.permission.READ_MEDIA_VIDEO)
+                permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
             }
         } else {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -151,6 +156,7 @@ class MainActivity : AppCompatActivity() {
                     2 -> {
                         audioEnabled = !audioEnabled
                         Toast.makeText(this, "Audio: ${if (audioEnabled) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+                        checkPermissions()
                     }
                     3 -> showAboutDialog()
                 }
@@ -184,7 +190,7 @@ class MainActivity : AppCompatActivity() {
     private fun showAboutDialog() {
         AlertDialog.Builder(this)
             .setTitle("GVT-X Camera")
-            .setMessage("Version 1.0\n\nProfessional Camera App\n\nFeatures:\n- Photo Capture\n- Video Recording\n- Front/Back Camera\n- Settings Menu")
+            .setMessage("Version 1.0\n\nProfessional Camera App\n\nFeatures:\n- Photo Capture\n- Video Recording with Audio\n- Front/Back Camera\n- Settings Menu")
             .setPositiveButton("OK", null)
             .show()
     }
@@ -244,7 +250,6 @@ class MainActivity : AppCompatActivity() {
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
             if (facing == currentLensFacing) {
                 val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                // Get supported video size for MediaRecorder
                 val supportedSizes = map?.getOutputSizes(MediaRecorder::class.java)
                 previewSize = supportedSizes?.firstOrNull { it.width == 1280 && it.height == 720 }
                     ?: supportedSizes?.firstOrNull()
@@ -339,9 +344,14 @@ class MainActivity : AppCompatActivity() {
             mediaRecorder?.apply {
                 setVideoSource(MediaRecorder.VideoSource.SURFACE)
                 
-                // Only add audio if permission granted
-                if (audioEnabled && ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                    setAudioSource(MediaRecorder.AudioSource.MIC)
+                // Force audio source if enabled and permission granted
+                if (audioEnabled) {
+                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        setAudioSource(MediaRecorder.AudioSource.MIC)
+                        Log.d(TAG, "Audio source set to MIC")
+                    } else {
+                        Log.w(TAG, "Audio permission not granted, skipping audio")
+                    }
                 }
                 
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -349,9 +359,11 @@ class MainActivity : AppCompatActivity() {
                 
                 if (audioEnabled && ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                     setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                    setAudioEncodingBitRate(128000)
+                    setAudioSamplingRate(44100)
+                    Log.d(TAG, "Audio encoder set to AAC")
                 }
                 
-                // Use safe 720p resolution first
                 setVideoSize(videoSize.width, videoSize.height)
                 setVideoFrameRate(frameRate)
                 setVideoEncodingBitRate(5000000)
@@ -359,6 +371,7 @@ class MainActivity : AppCompatActivity() {
                 setOrientationHint(90)
                 
                 prepare()
+                Log.d(TAG, "MediaRecorder prepared successfully")
             }
             return true
         } catch (e: Exception) {
@@ -377,10 +390,11 @@ class MainActivity : AppCompatActivity() {
             val recorderSurface = mediaRecorder?.surface
             if (recorderSurface == null) {
                 statusText.text = "Recorder surface not available"
+                Log.e(TAG, "Recorder surface is null")
                 return
             }
             
-            val texture = textureView.surfaceTexture
+            val texture = textureView.surfaceTexture ?: return
             val previewSurface = Surface(texture)
             val camera = cameraDevice
             
@@ -412,13 +426,14 @@ class MainActivity : AppCompatActivity() {
                             mediaRecorder?.start()
                             isRecording = true
                             btnRecord.text = "STOP"
-                            statusText.text = "Recording video..."
+                            statusText.text = "Recording video with audio..."
                             runOnUiThread {
-                                Toast.makeText(this@MainActivity, "Recording started", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this@MainActivity, "Recording started with audio", Toast.LENGTH_SHORT).show()
                             }
+                            Log.d(TAG, "Recording started successfully")
                         } catch (e: Exception) {
                             Log.e(TAG, "MediaRecorder start failed", e)
-                            statusText.text = "Recorder start failed"
+                            statusText.text = "Recorder start failed: ${e.message}"
                         }
                     }
                     
@@ -446,6 +461,7 @@ class MainActivity : AppCompatActivity() {
             mediaRecorder?.apply {
                 try {
                     stop()
+                    Log.d(TAG, "Recording stopped successfully")
                 } catch (e: Exception) {
                     Log.e(TAG, "Stop failed (may be normal if recording was short)", e)
                 }
@@ -470,13 +486,14 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
+                Log.d(TAG, "Video saved to gallery: $videoPath")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to save video to gallery", e)
             }
             
             isRecording = false
             btnRecord.text = "RECORD"
-            statusText.text = "Video saved"
+            statusText.text = "Video saved with audio"
             Toast.makeText(this, "Video saved to Gallery", Toast.LENGTH_LONG).show()
             
             // Restore preview session
@@ -554,11 +571,11 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_CAMERA_PERMISSION) {
             val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
             if (allGranted) {
-                statusText.text = "Permissions granted"
+                statusText.text = "All permissions granted"
                 openCamera()
             } else {
-                statusText.text = "Permissions required"
-                Toast.makeText(this, "Camera and storage permissions required", Toast.LENGTH_LONG).show()
+                statusText.text = "Some permissions denied"
+                Toast.makeText(this, "Camera and microphone permissions required", Toast.LENGTH_LONG).show()
             }
         }
     }
