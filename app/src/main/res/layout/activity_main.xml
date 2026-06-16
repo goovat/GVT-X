@@ -56,17 +56,22 @@
     </LinearLayout>
     
     <!-- 3-Dots Settings Menu -->
-    <ImageButton
+    <TextView
         android:id="@+id/btnSettings"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:src="@android:drawable/ic_menu_more"
-        android:backgroundTint="#333333"
+        android:text="⋮"
+        android:textSize="28sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:background="#333333"
         android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="12dp"
-        android:padding="12dp" />
+        android:clickable="true"
+        android:focusable="true" />
     
     <!-- Zoom Controls -->
     <LinearLayout
