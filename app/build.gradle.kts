@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.gvtboard"
+    namespace = "com.gvtx"
     compileSdk = 33
 
     defaultConfig {
-        applicationId = "com.gvtboard"
+        applicationId = "com.gvtx"
         minSdk = 24
         targetSdk = 33
         versionCode = 1
