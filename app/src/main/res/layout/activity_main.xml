@@ -4,11 +4,13 @@
     android:layout_height="match_parent"
     android:background="#000000">
     
+    <!-- Camera Preview -->
     <TextureView
         android:id="@+id/textureView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
     
+    <!-- Top Bar with Status -->
     <TextView
         android:id="@+id/statusText"
         android:layout_width="match_parent"
@@ -21,6 +23,39 @@
         android:gravity="center"
         android:layout_alignParentTop="true" />
     
+    <!-- Top Controls: Low-Light / HDR -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_below="@id/statusText"
+        android:layout_marginTop="10dp"
+        android:layout_centerHorizontal="true">
+        
+        <Button
+            android:id="@+id/btnLowLight"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="Low-Light"
+            android:textSize="11sp"
+            android:backgroundTint="#FF6B35"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:layout_marginEnd="8dp" />
+        
+        <Button
+            android:id="@+id/btnHDR"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="HDR"
+            android:textSize="11sp"
+            android:backgroundTint="#333333"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp" />
+            
+    </LinearLayout>
+    
+    <!-- 3-Dots Settings Menu -->
     <TextView
         android:id="@+id/btnSettings"
         android:layout_width="48dp"
@@ -38,6 +73,7 @@
         android:clickable="true"
         android:focusable="true" />
     
+    <!-- Zoom Controls -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -77,6 +113,53 @@
             
     </LinearLayout>
     
+    <!-- Mode Selector -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="120dp">
+        
+        <Button
+            android:id="@+id/btnModePhoto"
+            android:layout_width="70dp"
+            android:layout_height="40dp"
+            android:text="Photo"
+            android:textSize="11sp"
+            android:backgroundTint="#FF6B35"
+            android:layout_marginEnd="4dp" />
+        
+        <Button
+            android:id="@+id/btnModeVideo"
+            android:layout_width="70dp"
+            android:layout_height="40dp"
+            android:text="Video"
+            android:textSize="11sp"
+            android:backgroundTint="#333333"
+            android:layout_marginEnd="4dp" />
+        
+        <Button
+            android:id="@+id/btnModeAICam"
+            android:layout_width="70dp"
+            android:layout_height="40dp"
+            android:text="AI CAM"
+            android:textSize="11sp"
+            android:backgroundTint="#333333"
+            android:layout_marginEnd="4dp" />
+        
+        <Button
+            android:id="@+id/btnModeBeauty"
+            android:layout_width="70dp"
+            android:layout_height="40dp"
+            android:text="Beauty"
+            android:textSize="11sp"
+            android:backgroundTint="#333333" />
+            
+    </LinearLayout>
+    
+    <!-- Bottom Control Bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -114,6 +197,7 @@
             
     </LinearLayout>
     
+    <!-- Hidden Record button (shown in video mode) -->
     <Button
         android:id="@+id/btnRecord"
         android:layout_width="72dp"
