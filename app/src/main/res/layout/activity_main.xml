@@ -1,26 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:background="#1A1A1A">
+    android:background="#000000">
     
+    <!-- Camera Preview -->
+    <TextureView
+        android:id="@+id/textureView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+    
+    <!-- Status Text -->
     <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
+        android:id="@+id/statusText"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="GVT-X"
-        android:textSize="32sp"
+        android:text="GVT-X Ready"
         android:textColor="#FF6B35"
-        android:textStyle="bold" />
+        android:textSize="14sp"
+        android:background="#80000000"
+        android:padding="12dp"
+        android:gravity="center"
+        android:layout_alignParentTop="true" />
     
+    <!-- Settings (3-dots) -->
     <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Professional Camera App"
-        android:textSize="16sp"
-        android:textColor="#00D4FF"
-        android:layout_marginTop="8dp" />
+        android:id="@+id/btnSettings"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:text="⋮"
+        android:textSize="28sp"
+        android:textColor="#FFFFFF"
+        android:gravity="center"
+        android:background="#333333"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="12dp"
+        android:clickable="true" />
     
-</LinearLayout>
+    <!-- Bottom Controls -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="32dp"
+        android:padding="16dp">
+        
+        <Button
+            android:id="@+id/btnSwitchLens"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:text="🔄"
+            android:textSize="20sp"
+            android:backgroundTint="#333333"
+            android:layout_marginEnd="24dp" />
+        
+        <Button
+            android:id="@+id/btnCapture"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:text="📸"
+            android:textSize="28sp"
+            android:backgroundTint="#FF6B35" />
+        
+    </LinearLayout>
+    
+</RelativeLayout>
