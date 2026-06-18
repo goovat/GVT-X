@@ -70,7 +70,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Initialize all views
+        // Initialize all views - THIS MUST COME BEFORE ANY USAGE
         textureView = findViewById(R.id.textureView)
         btnCapture = findViewById(R.id.btnCapture)
         btnRecord = findViewById(R.id.btnRecord)
