@@ -1,71 +1,148 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
-    
+
     <!-- Camera Preview -->
     <TextureView
         android:id="@+id/textureView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
-    
-    <!-- Status Text -->
-    <TextView
-        android:id="@+id/statusText"
+
+    <!-- Focus Peaking Overlay -->
+    <View
+        android:id="@+id/focusPeakingView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:background="@drawable/focus_peaking" />
+
+    <!-- === TOP BAR === -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#80000000"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:layout_marginTop="40dp">
+
+        <TextView android:id="@+id/btnSettings" android:layout_width="40dp" android:layout_height="40dp" android:text="⚙" android:textSize="22sp" android:gravity="center" android:textColor="#FFFFFF" />
+        <TextView android:id="@+id/btnFlash" android:layout_width="40dp" android:layout_height="40dp" android:text="⚡" android:textSize="22sp" android:gravity="center" android:textColor="#FFFFFF" android:layout_marginStart="16dp" />
+        <TextView android:id="@+id/btnHDR" android:layout_width="40dp" android:layout_height="40dp" android:text="HDR" android:textSize="12sp" android:gravity="center" android:textColor="#FFFFFF" android:layout_marginStart="12dp" />
+        <TextView android:id="@+id/btnRatio" android:layout_width="40dp" android:layout_height="40dp" android:text="4:3" android:textSize="12sp" android:gravity="center" android:textColor="#FFFFFF" android:layout_marginStart="12dp" />
+        <TextView android:id="@+id/btnAIScene" android:layout_width="wrap_content" android:layout_height="28dp" android:text="🌙 NIGHT" android:textSize="11sp" android:gravity="center" android:background="#FF6B35" android:paddingStart="10dp" android:paddingEnd="10dp" android:textColor="#FFFFFF" android:layout_marginStart="12dp" />
+        <TextView android:id="@+id/btnFilters" android:layout_width="40dp" android:layout_height="40dp" android:text="👥" android:textSize="22sp" android:gravity="center" android:textColor="#FFFFFF" android:layout_marginStart="12dp" />
+
+    </LinearLayout>
+
+    <!-- === HISTOGRAM === -->
+    <TextView android:id="@+id/histogram" android:layout_width="80dp" android:layout_height="40dp" android:text="▁▂▃▄▅▆▇█" android:textSize="14sp" android:textColor="#00D4FF" android:gravity="center" android:layout_marginTop="110dp" android:layout_marginEnd="20dp" android:layout_gravity="top|end" />
+
+    <!-- === GVT-X VISION === -->
+    <TextView android:id="@+id/visionChip" android:layout_width="wrap_content" android:layout_height="28dp" android:text="GVT-X Vision" android:textSize="11sp" android:textColor="#FFFFFF" android:background="#3300D4FF" android:paddingStart="12dp" android:paddingEnd="12dp" android:gravity="center" android:layout_marginTop="110dp" android:layout_marginStart="16dp" android:layout_gravity="top|start" />
+
+    <!-- === AI SUGGESTION === -->
+    <TextView android:id="@+id/aiSuggestion" android:layout_width="wrap_content" android:layout_height="28dp" android:text="📷 Hold Steady" android:textSize="11sp" android:textColor="#FFFFFF" android:background="#33FFFFFF" android:paddingStart="12dp" android:paddingEnd="12dp" android:gravity="center" android:layout_marginTop="155dp" android:layout_gravity="center_horizontal" />
+
+    <!-- === SMART CAPTURE STATUS === -->
+    <TextView android:id="@+id/smartCaptureStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✅ Eyes Open • Smile • Steady" android:textSize="11sp" android:textColor="#00D4FF" android:gravity="center" android:layout_marginBottom="100dp" android:layout_gravity="bottom|center_horizontal" />
+
+    <!-- === STATUS TEXT === -->
+    <TextView android:id="@+id/statusText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="GVT-X Ready" android:textSize="12sp" android:textColor="#FFFFFF" android:layout_marginTop="155dp" android:layout_marginStart="20dp" android:layout_gravity="top|start" />
+
+    <!-- === ZOOM WHEEL === -->
+    <LinearLayout android:id="@+id/zoomWheel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center" android:background="#80000000" android:padding="8dp" android:layout_marginBottom="220dp" android:layout_gravity="bottom|center_horizontal">
+        <TextView android:id="@+id/zoom06x" android:layout_width="40dp" android:layout_height="32dp" android:text="0.6x" android:textSize="10sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="4dp" android:paddingEnd="4dp" />
+        <TextView android:id="@+id/zoom1x" android:layout_width="40dp" android:layout_height="32dp" android:text="1x" android:textSize="10sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#FF6B35" android:paddingStart="4dp" android:paddingEnd="4dp" android:layout_marginStart="4dp" />
+        <TextView android:id="@+id/zoom2x" android:layout_width="40dp" android:layout_height="32dp" android:text="2x" android:textSize="10sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="4dp" android:paddingEnd="4dp" android:layout_marginStart="4dp" />
+        <TextView android:id="@+id/zoom5x" android:layout_width="40dp" android:layout_height="32dp" android:text="5x" android:textSize="10sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="4dp" android:paddingEnd="4dp" android:layout_marginStart="4dp" />
+        <TextView android:id="@+id/zoom10x" android:layout_width="40dp" android:layout_height="32dp" android:text="10x" android:textSize="10sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="4dp" android:paddingEnd="4dp" android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+    <!-- === MODE STRIP === -->
+    <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="160dp" android:layout_gravity="bottom" android:background="#80000000" android:scrollbars="none">
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="40dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="12dp" android:paddingEnd="12dp">
+            <TextView android:id="@+id/modePortrait" android:layout_width="wrap_content" android:layout_height="28dp" android:text="Portrait" android:textSize="11sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="12dp" android:paddingEnd="12dp" android:layout_marginEnd="6dp" />
+            <TextView android:id="@+id/modeVideo" android:layout_width="wrap_content" android:layout_height="28dp" android:text="Video" android:textSize="11sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="12dp" android:paddingEnd="12dp" android:layout_marginEnd="6dp" />
+            <TextView android:id="@+id/modeAICam" android:layout_width="wrap_content" android:layout_height="28dp" android:text="AI CAM" android:textSize="11sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#FF6B35" android:paddingStart="12dp" android:paddingEnd="12dp" android:layout_marginEnd="6dp" />
+            <TextView android:id="@+id/modeBeauty" android:layout_width="wrap_content" android:layout_height="28dp" android:text="Beauty" android:textSize="11sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="12dp" android:paddingEnd="12dp" android:layout_marginEnd="6dp" />
+            <TextView android:id="@+id/modePro" android:layout_width="wrap_content" android:layout_height="28dp" android:text="Pro" android:textSize="11sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="12dp" android:paddingEnd="12dp" android:layout_marginEnd="6dp" />
+            <TextView android:id="@+id/modeAstro" android:layout_width="wrap_content" android:layout_height="28dp" android:text="Astro" android:textSize="11sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="12dp" android:paddingEnd="12dp" android:layout_marginEnd="6dp" />
+            <TextView android:id="@+id/modeDocument" android:layout_width="wrap_content" android:layout_height="28dp" android:text="Document" android:textSize="11sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="12dp" android:paddingEnd="12dp" android:layout_marginEnd="6dp" />
+            <TextView android:id="@+id/modeScanner" android:layout_width="wrap_content" android:layout_height="28dp" android:text="Scanner" android:textSize="11sp" android:gravity="center" android:textColor="#FFFFFF" android:background="#333333" android:paddingStart="12dp" android:paddingEnd="12dp" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- === PRO PANEL === -->
+    <LinearLayout
+        android:id="@+id/proPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="GVT-X Ready"
-        android:textColor="#FF6B35"
-        android:textSize="14sp"
-        android:background="#80000000"
+        android:orientation="vertical"
+        android:background="#CC000000"
         android:padding="12dp"
-        android:gravity="center"
-        android:layout_alignParentTop="true" />
-    
-    <!-- Settings (3-dots) -->
-    <TextView
-        android:id="@+id/btnSettings"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:text="⋮"
-        android:textSize="28sp"
-        android:textColor="#FFFFFF"
-        android:gravity="center"
-        android:background="#333333"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="12dp"
-        android:clickable="true" />
-    
-    <!-- Bottom Controls -->
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="140dp"
+        android:visibility="gone">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <TextView android:layout_width="40dp" android:layout_height="wrap_content" android:text="ISO" android:textColor="#FF6B35" android:textSize="12sp" android:gravity="center" />
+            <SeekBar android:id="@+id/seekISO" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="8" android:progress="0" />
+            <TextView android:id="@+id/txtISO" android:layout_width="40dp" android:layout_height="wrap_content" android:text="100" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+            <TextView android:layout_width="40dp" android:layout_height="wrap_content" android:text="SS" android:textColor="#00D4FF" android:textSize="12sp" android:gravity="center" />
+            <SeekBar android:id="@+id/seekShutter" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="10" android:progress="6" />
+            <TextView android:id="@+id/txtShutter" android:layout_width="40dp" android:layout_height="wrap_content" android:text="1/60" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+            <TextView android:layout_width="40dp" android:layout_height="wrap_content" android:text="WB" android:textColor="#FFD700" android:textSize="12sp" android:gravity="center" />
+            <SeekBar android:id="@+id/seekWB" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="40" android:progress="20" />
+            <TextView android:id="@+id/txtWB" android:layout_width="40dp" android:layout_height="wrap_content" android:text="5500K" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+            <TextView android:layout_width="40dp" android:layout_height="wrap_content" android:text="EV" android:textColor="#FF6B35" android:textSize="12sp" android:gravity="center" />
+            <SeekBar android:id="@+id/seekEV" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="20" android:progress="10" />
+            <TextView android:id="@+id/txtEV" android:layout_width="40dp" android:layout_height="wrap_content" android:text="0.0" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+            <TextView android:layout_width="40dp" android:layout_height="wrap_content" android:text="MF" android:textColor="#00D4FF" android:textSize="12sp" android:gravity="center" />
+            <SeekBar android:id="@+id/seekFocus" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="100" android:progress="0" />
+            <TextView android:id="@+id/txtFocus" android:layout_width="40dp" android:layout_height="wrap_content" android:text="0%" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+            <TextView android:layout_width="60dp" android:layout_height="wrap_content" android:text="Noise NR" android:textColor="#FFD700" android:textSize="12sp" />
+            <ToggleButton android:id="@+id/toggleNR" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textOn="ON" android:textOff="OFF" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- === BOTTOM CONTROLS === -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:layout_alignParentBottom="true"
-        android:layout_marginBottom="32dp"
-        android:padding="16dp">
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="20dp"
+        android:padding="12dp">
+
+        <TextView android:id="@+id/btnGallery" android:layout_width="48dp" android:layout_height="48dp" android:text="📷" android:textSize="22sp" android:gravity="center" android:background="#333333" android:layout_marginEnd="20dp" />
         
-        <Button
-            android:id="@+id/btnSwitchLens"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:text="🔄"
-            android:textSize="20sp"
-            android:backgroundTint="#333333"
-            android:layout_marginEnd="24dp" />
+        <TextView android:id="@+id/btnCapture" android:layout_width="72dp" android:layout_height="72dp" android:text="📸" android:textSize="30sp" android:gravity="center" android:background="#FF6B35" android:layout_marginEnd="20dp" />
         
-        <Button
-            android:id="@+id/btnCapture"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:text="📸"
-            android:textSize="28sp"
-            android:backgroundTint="#FF6B35" />
+        <TextView android:id="@+id/btnRecord" android:layout_width="48dp" android:layout_height="48dp" android:text="🔴" android:textSize="22sp" android:gravity="center" android:background="#FF3B30" android:layout_marginEnd="20dp" android:visibility="gone" />
         
+        <TextView android:id="@+id/btnSwitchLens" android:layout_width="48dp" android:layout_height="48dp" android:text="🔄" android:textSize="22sp" android:gravity="center" android:background="#333333" />
+
     </LinearLayout>
-    
-</RelativeLayout>
+
+</FrameLayout>
