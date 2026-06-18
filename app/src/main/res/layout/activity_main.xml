@@ -10,13 +10,13 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Focus Peaking Overlay -->
+    <!-- Focus Peaking Overlay (simplified) -->
     <View
         android:id="@+id/focusPeakingView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
-        android:background="@drawable/focus_peaking" />
+        android:background="#22FFFF00" />
 
     <!-- === TOP BAR === -->
     <LinearLayout
