@@ -25,6 +25,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,17 +37,20 @@ class MainActivity : AppCompatActivity() {
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
+    private var mediaRecorder: MediaRecorder? = null
     private lateinit var cameraManager: CameraManager
     private var backgroundHandler: Handler? = null
     private var backgroundThread: HandlerThread? = null
+    private var previewSize: Size? = null
     
     // State
     private var currentLensFacing = CameraCharacteristics.LENS_FACING_BACK
     private var isRecording = false
     private var isProMode = false
     private var currentMode = "AI CAM"
+    private var videoPath: String = ""
     
-    // UI Components - match layout exactly
+    // UI Components
     private lateinit var statusText: TextView
     private lateinit var histogram: TextView
     private lateinit var visionChip: TextView
@@ -178,36 +183,29 @@ class MainActivity : AppCompatActivity() {
             txtEV = findViewById(R.id.txtEV)
             txtFocus = findViewById(R.id.txtFocus)
             
-            // Set initial state
             statusText.text = "GVT-X Ready"
             smartCaptureStatus.text = "✅ Ready"
             
         } catch (e: Exception) {
             Log.e(TAG, "initializeViews error", e)
-            Toast.makeText(this, "View initialization error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun setupListeners() {
-        // Top bar
         btnSettings.setOnClickListener { showSettings() }
         btnFlash.setOnClickListener { toggleFlash() }
         btnHDR.setOnClickListener { toggleHDR() }
         btnRatio.setOnClickListener { cycleRatio() }
         btnAIScene.setOnClickListener { showSceneDetection() }
         btnFilters.setOnClickListener { showFilters() }
-        
-        // Vision chip
         visionChip.setOnClickListener { toggleVision() }
         
-        // Zoom
         zoom06x.setOnClickListener { setZoom(0.6f, it) }
         zoom1x.setOnClickListener { setZoom(1.0f, it) }
         zoom2x.setOnClickListener { setZoom(2.0f, it) }
         zoom5x.setOnClickListener { setZoom(5.0f, it) }
         zoom10x.setOnClickListener { setZoom(10.0f, it) }
         
-        // Modes
         modePortrait.setOnClickListener { setMode("Portrait", it) }
         modeVideo.setOnClickListener { setMode("Video", it) }
         modeAICam.setOnClickListener { setMode("AI CAM", it) }
@@ -217,13 +215,11 @@ class MainActivity : AppCompatActivity() {
         modeDocument.setOnClickListener { setMode("Document", it) }
         modeScanner.setOnClickListener { setMode("Scanner", it) }
         
-        // Bottom
-        btnGallery.setOnClickListener { Toast.makeText(this, "📷 Gallery", Toast.LENGTH_SHORT).show() }
+        btnGallery.setOnClickListener { openGallery() }
         btnCapture.setOnClickListener { capturePhoto() }
         btnRecord.setOnClickListener { toggleRecording() }
         btnSwitchLens.setOnClickListener { switchLens() }
         
-        // Pro controls
         setupProControls()
     }
 
@@ -236,7 +232,6 @@ class MainActivity : AppCompatActivity() {
                     else -> 25600
                 }
                 txtISO.text = iso.toString()
-                if (isProMode) statusText.text = "Pro: ISO $iso"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -250,7 +245,6 @@ class MainActivity : AppCompatActivity() {
                     8 -> "1/240"; 9 -> "1/480"; else -> "1/1000"
                 }
                 txtShutter.text = shutter
-                if (isProMode) statusText.text = "Pro: SS $shutter"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -260,7 +254,6 @@ class MainActivity : AppCompatActivity() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val wb = 2500 + progress * 75
                 txtWB.text = "${wb}K"
-                if (isProMode) statusText.text = "Pro: WB ${wb}K"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -270,7 +263,6 @@ class MainActivity : AppCompatActivity() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val ev = String.format("%.1f", (progress - 10) / 2.0f)
                 txtEV.text = ev
-                if (isProMode) statusText.text = "Pro: EV $ev"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -279,15 +271,10 @@ class MainActivity : AppCompatActivity() {
         seekFocus.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 txtFocus.text = "$progress%"
-                if (isProMode) statusText.text = "Pro: Focus $progress%"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
-        
-        toggleNR.setOnCheckedChangeListener { _, isChecked ->
-            if (isProMode) statusText.text = "Pro: NR ${if (isChecked) "ON" else "OFF"}"
-        }
     }
 
     private fun setMode(mode: String, view: View) {
@@ -322,7 +309,6 @@ class MainActivity : AppCompatActivity() {
                 btnRecord.visibility = View.GONE
                 btnCapture.visibility = View.VISIBLE
                 statusText.text = "AI Camera Active"
-                startAISuggestions()
             }
             else -> {
                 isProMode = false
@@ -361,7 +347,6 @@ class MainActivity : AppCompatActivity() {
         histogram.text = (0..7).map { levels.random() }.joinToString("")
     }
 
-    // Feature implementations
     private fun toggleFlash() {
         val color = if (btnFlash.currentTextColor == -0x1) 
             ContextCompat.getColor(this, android.R.color.holo_orange_dark) 
@@ -444,51 +429,192 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun openGallery() {
+        Toast.makeText(this, "📷 Opening Gallery...", Toast.LENGTH_SHORT).show()
+    }
+
+    // ===== REAL PHOTO CAPTURE =====
     private fun capturePhoto() {
+        if (cameraDevice == null) {
+            Toast.makeText(this, "Camera not ready", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        try {
+            val captureRequest = cameraDevice?.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+            val imageSurface = imageReader?.surface
+            if (imageSurface == null) {
+                Toast.makeText(this, "Image reader not ready", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            captureRequest?.addTarget(imageSurface)
+            captureRequest?.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
+            captureRequest?.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+            captureRequest?.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            
+            captureSession?.capture(captureRequest?.build(), null, backgroundHandler)
+            statusText.text = "📸 Capturing..."
+            Toast.makeText(this, "📸 Capturing photo...", Toast.LENGTH_SHORT).show()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "capturePhoto error", e)
+            Toast.makeText(this, "Failed to capture: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ===== REAL VIDEO RECORDING =====
+    private fun startRecording() {
         try {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val filename = "GVTX_$timestamp.jpg"
+            val videoFile = File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "GVTX_$timestamp.mp4")
+            videoPath = videoFile.absolutePath
             
-            val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/GVT-X")
-                }
+            // Setup MediaRecorder
+            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MediaRecorder(this)
+            } else {
+                MediaRecorder()
             }
             
-            val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-            uri?.let {
-                contentResolver.openOutputStream(it)?.use { stream ->
-                    val bitmap = Bitmap.createBitmap(1920, 1080, Bitmap.Config.ARGB_8888)
-                    val canvas = Canvas(bitmap)
-                    canvas.drawColor(Color.BLACK)
-                    val paint = Paint().apply {
-                        color = Color.parseColor("#FF6B35")
-                        textSize = 80f
-                        textAlign = Paint.Align.CENTER
+            mediaRecorder?.apply {
+                setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setVideoSize(1280, 720)
+                setVideoFrameRate(30)
+                setVideoEncodingBitRate(5000000)
+                setOutputFile(videoPath)
+                setOrientationHint(90)
+                prepare()
+            }
+            
+            val recorderSurface = mediaRecorder?.surface
+            if (recorderSurface == null) {
+                Toast.makeText(this, "Recorder surface not available", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            val texture = textureView.surfaceTexture
+            val previewSurface = Surface(texture)
+            val camera = cameraDevice
+            
+            if (camera == null) {
+                Toast.makeText(this, "Camera not available", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            // Close current session
+            captureSession?.close()
+            captureSession = null
+            
+            camera.createCaptureSession(
+                listOf(previewSurface, recorderSurface),
+                object : CameraCaptureSession.StateCallback() {
+                    override fun onConfigured(session: CameraCaptureSession) {
+                        captureSession = session
+                        val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                        captureRequest.addTarget(previewSurface)
+                        captureRequest.addTarget(recorderSurface)
+                        
+                        captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
+                        captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+                        captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                        
+                        session.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
+                        
+                        try {
+                            mediaRecorder?.start()
+                            isRecording = true
+                            btnRecord.text = "⏹"
+                            btnRecord.setBackgroundColor(ContextCompat.getColor(this@MainActivity, android.R.color.holo_red_dark))
+                            statusText.text = "🔴 Recording..."
+                            smartCaptureStatus.text = "🔴 RECORDING..."
+                            Toast.makeText(this@MainActivity, "🔴 Recording started", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "MediaRecorder start failed", e)
+                            Toast.makeText(this@MainActivity, "Failed to start recording: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                    canvas.drawText("GVT-X", 960f, 540f, paint)
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                    
+                    override fun onConfigureFailed(session: CameraCaptureSession) {
+                        Toast.makeText(this@MainActivity, "Recording session failed", Toast.LENGTH_SHORT).show()
+                        createPreviewSession()
+                    }
+                },
+                backgroundHandler
+            )
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "startRecording error", e)
+            Toast.makeText(this, "Failed to start recording: ${e.message}", Toast.LENGTH_SHORT).show()
+            mediaRecorder?.release()
+            mediaRecorder = null
+            createPreviewSession()
+        }
+    }
+
+    private fun stopRecording() {
+        try {
+            mediaRecorder?.apply {
+                try {
+                    stop()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Stop recording error", e)
                 }
+                release()
+            }
+            mediaRecorder = null
+            
+            // Save video to gallery
+            try {
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, File(videoPath).name)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/GVT-X")
+                    }
+                }
+                val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                uri?.let {
+                    contentResolver.openOutputStream(it)?.use { outputStream ->
+                        File(videoPath).inputStream().use { inputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to save video", e)
             }
             
-            Toast.makeText(this, "📸 Photo saved: $filename", Toast.LENGTH_LONG).show()
-            smartCaptureStatus.text = "✅ Photo Captured!"
+            isRecording = false
+            btnRecord.text = "🔴"
+            btnRecord.setBackgroundColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+            statusText.text = "Video saved"
+            smartCaptureStatus.text = "✅ Video saved"
+            Toast.makeText(this, "✅ Video saved to Gallery", Toast.LENGTH_LONG).show()
+            
+            // Restore preview session
+            createPreviewSession()
+            
         } catch (e: Exception) {
-            Toast.makeText(this, "Failed to save photo", Toast.LENGTH_SHORT).show()
+            Log.e(TAG, "stopRecording error", e)
+            Toast.makeText(this, "Failed to stop recording", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun toggleRecording() {
-        isRecording = !isRecording
-        btnRecord.text = if (isRecording) "⏹" else "🔴"
-        btnRecord.setBackgroundColor(ContextCompat.getColor(this, if (isRecording) android.R.color.holo_red_dark else android.R.color.holo_orange_dark))
-        Toast.makeText(this, if (isRecording) "🔴 Recording started" else "⏹ Recording stopped", Toast.LENGTH_SHORT).show()
-        smartCaptureStatus.text = if (isRecording) "🔴 RECORDING..." else "✅ Ready"
+        if (isRecording) {
+            stopRecording()
+        } else {
+            startRecording()
+        }
     }
 
-    // Camera methods
+    // ===== CAMERA SETUP =====
+
     private fun setupTextureView() {
         textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
@@ -511,6 +637,17 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.RECORD_AUDIO)
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.READ_MEDIA_IMAGES)
+                permissions.add(Manifest.permission.READ_MEDIA_VIDEO)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+        }
+        
         if (permissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(), REQUEST_CAMERA_PERMISSION)
         }
@@ -518,22 +655,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun openCamera() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return
+        
         try {
             val cameraId = getCameraId()
             cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     cameraDevice = camera
-                    createCaptureSession()
+                    createPreviewSession()
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     cameraDevice = null
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     cameraDevice = null
+                    Toast.makeText(this@MainActivity, "Camera error: $error", Toast.LENGTH_SHORT).show()
                 }
             }, backgroundHandler)
         } catch (e: Exception) {
             Log.e(TAG, "openCamera error", e)
+            Toast.makeText(this, "Failed to open camera: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -541,23 +681,46 @@ class MainActivity : AppCompatActivity() {
         cameraManager.cameraIdList.forEach { id ->
             val characteristics = cameraManager.getCameraCharacteristics(id)
             val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
-            if (facing == currentLensFacing) return id
+            if (facing == currentLensFacing) {
+                val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                previewSize = map?.getOutputSizes(MediaRecorder::class.java)?.firstOrNull { it.width == 1280 && it.height == 720 }
+                    ?: Size(1280, 720)
+                return id
+            }
         }
         return cameraManager.cameraIdList.firstOrNull() ?: "0"
     }
 
-    private fun createCaptureSession() {
+    private fun createPreviewSession() {
         val texture = textureView.surfaceTexture
+        texture?.setDefaultBufferSize(previewSize?.width ?: 1280, previewSize?.height ?: 720)
         val surface = Surface(texture)
 
+        // Setup ImageReader for photo capture
+        imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, 2)
+        imageReader?.setOnImageAvailableListener({ reader ->
+            val image = reader.acquireLatestImage()
+            if (image != null) {
+                saveImage(image)
+                image.close()
+            }
+        }, backgroundHandler)
+
+        val targets = mutableListOf<Surface>()
+        targets.add(surface)
+        imageReader?.surface?.let { targets.add(it) }
+
         cameraDevice?.createCaptureSession(
-            listOf(surface),
+            targets,
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     captureSession = session
                     startPreview(surface)
+                    statusText.text = "Ready"
                 }
-                override fun onConfigureFailed(session: CameraCaptureSession) {}
+                override fun onConfigureFailed(session: CameraCaptureSession) {
+                    Toast.makeText(this@MainActivity, "Camera configuration failed", Toast.LENGTH_SHORT).show()
+                }
             },
             backgroundHandler
         )
@@ -571,6 +734,38 @@ class MainActivity : AppCompatActivity() {
         captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
         captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
         captureSession?.setRepeatingRequest(captureRequest.build(), null, backgroundHandler)
+    }
+
+    private fun saveImage(image: android.media.Image) {
+        try {
+            val buffer = image.planes[0].buffer
+            val bytes = ByteArray(buffer.remaining())
+            buffer.get(bytes)
+            
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val filename = "GVTX_$timestamp.jpg"
+            
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/GVT-X")
+                }
+            }
+            
+            val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            uri?.let {
+                contentResolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.write(bytes)
+                    statusText.text = "📸 Photo saved"
+                    smartCaptureStatus.text = "✅ Photo saved"
+                    Toast.makeText(this, "📸 Photo saved: $filename", Toast.LENGTH_LONG).show()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "saveImage error", e)
+            Toast.makeText(this, "Failed to save photo: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun switchLens() {
@@ -589,6 +784,10 @@ class MainActivity : AppCompatActivity() {
         captureSession = null
         cameraDevice?.close()
         cameraDevice = null
+        imageReader?.close()
+        imageReader = null
+        mediaRecorder?.release()
+        mediaRecorder = null
     }
 
     private fun startBackgroundThread() {
