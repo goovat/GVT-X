@@ -25,8 +25,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.File
-import java.io.FileOutputStream
-import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -441,19 +439,20 @@ class MainActivity : AppCompatActivity() {
         }
         
         try {
-            val captureRequest = cameraDevice?.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+            val camera = cameraDevice ?: return
+            val captureRequest = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
             val imageSurface = imageReader?.surface
             if (imageSurface == null) {
                 Toast.makeText(this, "Image reader not ready", Toast.LENGTH_SHORT).show()
                 return
             }
             
-            captureRequest?.addTarget(imageSurface)
-            captureRequest?.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
-            captureRequest?.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
-            captureRequest?.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            captureRequest.addTarget(imageSurface)
+            captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
+            captureRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+            captureRequest.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
             
-            captureSession?.capture(captureRequest?.build(), null, backgroundHandler)
+            captureSession?.capture(captureRequest.build(), null, backgroundHandler)
             statusText.text = "📸 Capturing..."
             Toast.makeText(this, "📸 Capturing photo...", Toast.LENGTH_SHORT).show()
             
